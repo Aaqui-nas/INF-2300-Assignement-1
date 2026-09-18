@@ -49,8 +49,6 @@ def load_messages():
 
 
 def save_messages(next_id, messages):
-    """Persist state atomically: write to a temp file, then replace in one step
-    so a crash mid-write never leaves messages.json half-written."""
     data = {"next_id": next_id, "messages": messages}
     fd, tmp_path = tempfile.mkstemp(dir=BASE_DIR)
     try:
@@ -70,7 +68,6 @@ def find_message(messages, message_id):
 
 
 def parse_json_body(body):
-    """Returns (data, ok). ok is False on invalid JSON."""
     if not body:
         return None, True
     try:
@@ -80,21 +77,6 @@ def parse_json_body(body):
 
 
 class API:
-    """A small decorator-based router, no regex or URL-pattern language:
-
-    - @api.get(path)/@api.post(path)/@api.put(path)/@api.delete(path)
-      register a handler for one exact, fixed path -- a plain dictionary
-      lookup on (method, path). Used for the static whitelist (/,
-      /index.html, ...) and for the /messages collection.
-    - @api.get_id(prefix)/@api.post_id(prefix)/... register a handler for
-      "<prefix>/<id>", where <id> is a run of digits; the matched id (as an
-      int) is passed to the handler after the body. This is the one
-      genuinely dynamic route this assignment needs (/messages/<id>).
-
-    Anything that matches neither table falls through to whatever the
-    caller does next (the generic static-file fallback in this file).
-    """
-
     def __init__(self):
         self._routes = {}
         self._id_routes = {}
@@ -119,7 +101,6 @@ class API:
         return self.route("DELETE", path)
 
     def default(self, func):
-        """Shortcut for the homepage handler, served on GET /."""
         return self.route("GET", "/")(func)
 
     def route_id(self, method, prefix):
@@ -145,10 +126,6 @@ class API:
         return self._routes.get((method, path))
 
     def lookup_id(self, method, prefix, path):
-        """If path is exactly '<prefix>/<digits>', return (func, id);
-        func is None if that id-shaped path isn't registered for this
-        method. Returns None entirely if path isn't under prefix/<digits>
-        at all."""
         if not path.startswith(prefix + "/"):
             return None
         remainder = path[len(prefix) + 1:]
@@ -218,13 +195,9 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
 
         self._handle_static_fallback(method, path)
 
-    # ---- Generic request parsing / response writing -----------------------
-
     def _read_request_line(self):
         raw_line = self.rfile.readline(65536)
         if raw_line in (b"", b"\r\n", b"\n"):
-            # Tolerate a single leading blank line (RFC 9112 3), then require
-            # a real request line.
             if raw_line == b"":
                 return None
             raw_line = self.rfile.readline(65536)
@@ -278,8 +251,6 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
         if body:
             self.wfile.write(body)
 
-    # ---- Static file fallback (anything not in the whitelist below) -------
-
     def _handle_static_fallback(self, method, path):
         if method != "GET":
             self._send(403, b"Forbidden", "text/plain")
@@ -293,15 +264,9 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
             return
 
         if os.path.isfile(real_requested):
-            # Exists on disk but isn't in the whitelist (e.g. server.py).
             self._send(403, b"Forbidden", "text/plain")
         else:
             self._send(404, b"Not Found", "text/plain")
-
-
-# ---- /messages REST API ----------------------------------------------
-# GET/POST/PUT/DELETE on the collection are exact-path routes; the id
-# variants (/messages/<id>) go through the *_id() routes instead.
 
 @api.get("/messages")
 def list_messages(handler, body):
@@ -394,15 +359,9 @@ def delete_message_by_url_id(handler, body, message_id):
 
 @api.post_id("/messages")
 def post_to_message_item(handler, body, message_id):
-    # Creating a message at a URL that already names a specific id doesn't
-    # make sense; only the collection endpoint accepts creation.
     handler._send(403, b"Forbidden", "text/plain")
 
 
-# ---- Static file whitelist ------------------------------------------------
-# The only routes served or written outside of /messages. Anything else
-# falls through to _handle_static_fallback above (403 if it exists on disk,
-# 404 otherwise) -- a whitelist, not a blacklist.
 
 def _serve_static_file(handler, filename):
     file_path = os.path.join(BASE_DIR, filename)

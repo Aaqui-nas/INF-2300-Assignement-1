@@ -171,10 +171,10 @@ written to.
 
 \subsection{The /messages resource}\label{Subsection:design_messages}
 I model a message as a JSON object with two fields, \texttt{id} and
-\texttt{text}. The server always assigns the \texttt{id}; I never trust
-one from the client, since it is what identifies a message across
-requests, and letting a client choose it would risk collisions with other
-messages. I address a message in two ways: through the request body (an
+\texttt{text}.
+
+The id is always assigned by the server, in order to avoid risk of collisions with other
+messages. A message is addressed in two ways: through the request body (an
 \texttt{id} field, as the base assignment requires) on the
 \texttt{/messages} collection, or through the URL itself,
 \texttt{/messages/<id>}, closer to how most real REST APIs work. I treat
@@ -194,17 +194,14 @@ decorator-based router, the \texttt{API} class, maps a method and path to
 a handler function; and one handler function per route holds the actual
 application logic.
 
-I keep the router simple: two Python dictionaries and a few decorator
+The router is router simple, just two Python dictionaries and a few decorator
 methods (\texttt{@api.get}, \texttt{@api.post}, \texttt{@api.get\_id}, and
 so on), not a general regular-expression engine. This is enough to express
-every route in this assignment: a few fixed static paths, the
-\texttt{/messages} collection, and the one dynamic route,
-\texttt{/messages/<id>}.
+every route in this assignment.
 
 \subsection{Request parsing}\label{Subsection:impl_parsing}
 I read the request line and headers line by line with
-\texttt{rfile.readline()}. I tolerate one leading blank line, as RFC 9112
-section 3 allows, then require a well-formed request line. Any malformed
+\texttt{rfile.readline()}. Any malformed
 line raises a \texttt{\_BadRequest} exception, which I catch once in
 \texttt{handle()} and turn into a \texttt{400} response instead of
 crashing the handler. I read the body with exactly
@@ -216,16 +213,15 @@ and answer with \texttt{501}.
 
 \subsection{Static resource routing and path traversal protection}\label{Subsection:impl_traversal}
 Each whitelisted route (\texttt{/}, \texttt{/index.html},
-\texttt{/favicon.ico}, \texttt{/test.txt}) resolves to one fixed filename
-inside \texttt{BASE\_DIR}, so a request for one of them can never escape
-that directory. Any \texttt{GET} request that matches none of these exact
-routes falls through to a generic fallback. I resolve the target path with
-\texttt{os.path.realpath()} and check it against \texttt{BASE\_DIR} before
-touching the filesystem; anything outside \texttt{BASE\_DIR} gets
-\texttt{403}, before I even check whether the file exists. A file that
-exists but is not whitelisted, such as \texttt{server.py}, also gets
-\texttt{403} rather than \texttt{404}. This way, a client cannot tell a
-forbidden file from a missing one.
+\texttt{/favicon.ico}, \texttt{/test.txt}) points to a fixed file inside
+\texttt{BASE\_DIR}, so it cannot escape this directory. Other \texttt{GET}
+requests use a generic fallback. Before accessing the filesystem, I resolve
+the path with \texttt{os.path.realpath()} and check that it stays inside
+\texttt{BASE\_DIR}. If not, the server returns \texttt{403}. Files that
+exist but are not whitelisted, such as \texttt{server.py}, also return
+\texttt{403} instead of \texttt{404}, so clients cannot distinguish
+forbidden files from missing ones.
+
 
 \subsection{The /messages REST API}\label{Subsection:impl_messages}
 \texttt{GET /messages} returns the full list as a JSON array.
@@ -237,10 +233,7 @@ requires. The id-in-URL variants, \texttt{GET}/\texttt{PUT}/\texttt{DELETE}
 on \texttt{/messages/<id>}, are separate routes registered with
 \texttt{@api.get\_id}/\texttt{@api.put\_id}/\texttt{@api.delete\_id}, and
 reuse the same \texttt{find\_message()} and \texttt{save\_messages()}
-helpers. I also register \texttt{POST /messages/<id>}, only to answer
-\texttt{403}: creating a message only makes sense on the collection
-endpoint. Every change goes through \texttt{save\_messages()}, which
-writes the full state to \texttt{messages.json}.
+helpers.
 
 \subsection{Persistence implementation}\label{Subsection:impl_persistence}
 \texttt{save\_messages()} writes the new state to a temporary file with
@@ -265,27 +258,13 @@ this as a conscious trade-off, not an oversight.
 
 \section{Experiments and Results}\label{Section:Experiments and Results}
 
-\subsection{Automated testing}\label{Subsection:results_automated}
-The provided \texttt{test\_client.py} drives the handler through a second,
-in-process server. It checks 12 behaviours: a valid response code, the
-body and headers of \texttt{GET /}, the \texttt{404} and \texttt{403}
-status codes, protection against directory traversal, and the behaviour
-of \texttt{POST} to \texttt{/test.txt}. It runs the suite in sequential
-order, then in random order; the random pass only runs if the sequential
-pass fully succeeds. I applied the errata fix for this file before running
-it: every request target now starts with a slash. All 12 tests passed, in
-both sequential and random order (12/12, 100\%).
-
 \subsection{Automated testing of /messages}\label{Subsection:results_messages}
 \texttt{test\_client.py} does not test \texttt{/messages}, so I wrote a
 second suite, \texttt{test\_messages.py}, in the same style: boolean-
 returning test functions with a docstring, run sequentially then in random
 order. It covers \texttt{GET}/\texttt{POST}/\texttt{PUT}/\texttt{DELETE} on
 the collection and on \texttt{/messages/<id>}, and every edge case from
-Section \ref{Section:Discussion}: a missing \texttt{text} or \texttt{id}
-field, a non-existent id, malformed JSON, an empty body, a client-supplied
-id being ignored, \texttt{POST} to an id URL being forbidden, and a
-created message being readable back through \texttt{load\_messages()}.
+Section \ref{Section:Discussion}.
 Each test creates and removes its own message, which keeps the suite safe
 to run in any order. All 23 tests passed, in both sequential and random
 order (23/23, 100\%). This suite runs its own server on a separate port,
@@ -402,6 +381,21 @@ credits: whitelist-based path traversal protection, \texttt{Server} and
 limitations remain for future work: a locking mechanism for
 \texttt{messages.json} under concurrent requests, and a real \texttt{3xx}
 redirect from \texttt{/} to \texttt{/index.html}.
+
+\section*{AI Usage Declaration}
+\begin{itemize}
+	\item \textbf{Tool used:} Claude Sonnet 5.1 (Anthropic), used through the
+	Claude Code CLI.
+	\item \textbf{Purpose of use:} I used the tool as an assistant while
+	working on this assignment. I used it to discuss and refactor the design
+	of the server's routing code, to write the two automated test suites, to
+	set up the git repository, and to produce a first draft of the text in
+	this report.
+	\item \textbf{Author's declaration of responsibility:} I reviewed, tested,
+	and edited all AI-assisted code and text before submitting this
+	assignment. I take full responsibility for the correctness, originality,
+	and content of the final code and report submitted here.
+\end{itemize}
 
 \printbibliography
 
