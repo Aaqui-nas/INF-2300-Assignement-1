@@ -1,0 +1,76 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+    <title>INF-2301 Web Server</title>
+
+</head>
+<body>
+    <div class="jumbotron" style="background-color:silver;">
+        <div class="container">
+            <h1>INF-2301 Web Server</h1>
+            <p>
+                Use this page to test your implementation of the HTTP requests.
+            </p>
+            <p>
+                If you see this page, it probably means that your GET implementation works correctly.
+            </p>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <form id="form_post" action="/test.txt" method="post" target="_blank">
+            <h2>POST input test</h2>
+            <p>Use the field below to test your implementation of the POST method.</p>
+            <p>When you hit the button, your browser will <em>application/x-www-form-urlencoded</em> encode the data in the text box and transmit it as payload in an HTTP POST request.</p>
+            <div class="form-group">
+                <label for="input_text">Text to POST</label>
+                <input id="input_text" class="form-control" type="text" name="text" placeholder="Enter the text to POST here." onchange="on_text_changed()" />
+            </div>
+            <input class="btn btn-default" type="submit" value="Submit" />
+            <p>For your convenience, your browser will open the result in a new tab or window.</p>
+        </form>
+    </div>
+    <hr />
+    <div class="container">
+        <h2>application/x-www-form-urlencoded</h2>
+        <p>
+            In the text box below you can see how most browser (hopefully including your current browser) will encode the data you have entered in the text box above.
+            <br />
+            Note how spaces and other special characters are %-encoded as conventional for url-encoded data.
+        </p>
+        <textarea class="form-control" rows="5" id="input_urlencoded" readonly></textarea>
+    </div>
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+    <script type="text/javascript">
+
+        function on_text_changed() {
+            var inputText = document.getElementById("input_text");
+            if (inputText) {
+                var inputStringNonEncoded = inputText.value;
+                var inputStringEncoded = encodeURIComponent(inputStringNonEncoded ? inputStringNonEncoded : "");
+
+                var decodedTextArea = document.getElementById("input_urlencoded");
+                if (decodedTextArea) {
+                    decodedTextArea.value = (inputText.name ? inputText.name : "text") + '=' + inputStringEncoded;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
